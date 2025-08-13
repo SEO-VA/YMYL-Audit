@@ -374,8 +374,8 @@ def get_chunk_statistics(json_data: Dict[str, Any]) -> Dict[str, Any]:
 
 def convert_violations_json_to_readable(json_content: str) -> str:
     """
-    ✅ MAIN FUNCTION: Convert JSON violations format to human-readable markdown.
-    THIS IS THE COMPLETE VERSION WITH "Translation of Fix" FIELD
+    Convert JSON violations format to human-readable markdown.
+    Now supports the new content_name field from AI prompt.
     
     Args:
         json_content (str): JSON string with violations
@@ -420,6 +420,54 @@ def convert_violations_json_to_readable(json_content: str) -> str:
     except Exception as e:
         logger.error(f"Error converting JSON to readable format: {e}")
         return f"Error processing violations: {str(e)}\n\n"
+
+
+def create_grouped_violations_report(analysis_results: list) -> str:
+    """
+    Create a violations report grouped by content sections using content_name.
+    
+    Args:
+        analysis_results (list): List of chunk analysis results from AI
+        
+    Returns:
+        str: Complete grouped violations report
+    """
+    try:
+        readable_parts = []
+        
+        for result in analysis_results:
+            if not result.get('success'):
+                continue
+                
+            chunk_idx = result.get('chunk_index', 'Unknown')
+            
+            # Extract content_name and violations from AI response
+            try:
+                ai_response = json.loads(result['content'])
+                content_name = ai_response.get('content_name', f'Content Section {chunk_idx}')
+                violations = ai_response.get('violations', [])
+                
+                # Only add section if it has violations
+                if violations:
+                    readable_parts.append(f"## {content_name}\n\n")
+                    
+                    # Convert violations for this section
+                    violations_content = convert_violations_json_to_readable(result['content'])
+                    readable_parts.append(violations_content)
+                    
+            except json.JSONDecodeError:
+                # Fallback if AI response isn't valid JSON
+                logger.warning(f"Invalid JSON response for chunk {chunk_idx}")
+                continue
+        
+        if not readable_parts:
+            return "✅ **No violations found across all content sections.**\n\n"
+        
+        return ''.join(readable_parts)
+        
+    except Exception as e:
+        logger.error(f"Error creating grouped report: {e}")
+        return f"Error creating grouped report: {str(e)}\n\n"
 
 
 def compare_json_content(json1: str, json2: str) -> Dict[str, Any]:
@@ -632,11 +680,12 @@ def get_content_summary(json_data: Dict[str, Any]) -> Dict[str, Any]:
 # FIXED: Enhanced exports for better module interface
 __all__ = [
     'convert_violations_json_to_readable',
+    'create_grouped_violations_report',  # NEW
     'decode_unicode_escapes',
     'extract_big_chunks',
     'parse_json_output',
     'format_json_for_display',
-    'get_display_json_string',  # NEW: Main function for UI display
+    'get_display_json_string',
     'validate_chunk_structure',
     'get_chunk_statistics',
     'compare_json_content',

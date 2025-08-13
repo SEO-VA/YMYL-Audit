@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Minimal Analysis Engine for YMYL Audit Tool
+Updated to support content_name from AI prompt
 """
 
 import asyncio
@@ -10,7 +11,7 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Callable
 from ai.assistant_client import AssistantClient
 from utils.json_utils import extract_big_chunks, parse_json_output
-from utils.json_utils import convert_violations_json_to_readable  # ✅ IMPORT FROM UTILS - NO LOCAL FUNCTION
+from utils.json_utils import create_grouped_violations_report  # NEW IMPORT
 from utils.logging_utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -43,8 +44,8 @@ class AnalysisEngine:
             # Process chunks
             analysis_results = await self._process_chunks_parallel(chunks)
             
-            # Create report
-            report = self._create_final_report(analysis_results)
+            # Create report using new grouped format
+            report = self._create_final_report_with_content_names(analysis_results)
             
             processing_time = time.time() - self.analysis_start_time
             
@@ -73,8 +74,11 @@ class AnalysisEngine:
         results.sort(key=lambda x: x.get("chunk_index", 0))
         return results
 
-    def _create_final_report(self, analysis_results: List[Dict[str, Any]]) -> str:
-        """Create final report from analysis results."""
+    def _create_final_report_with_content_names(self, analysis_results: List[Dict[str, Any]]) -> str:
+        """
+        Create final report using content_name from AI responses.
+        Much simpler than the old complex grouping logic.
+        """
         report = f"""# YMYL Compliance Audit Report
 
 **Date:** {datetime.now().strftime("%Y-%m-%d")}
@@ -83,13 +87,47 @@ class AnalysisEngine:
 
 """
         
-        for i, result in enumerate(analysis_results, 1):
-            if result.get("success"):
-                # ✅ USES IMPORTED FUNCTION FROM utils.json_utils - HAS "Translation of Fix"
-                readable_content = convert_violations_json_to_readable(result["content"])
-                report += f"{readable_content}---\n\n"
+        # Create summary statistics
+        total_violations = 0
+        critical_count = 0
+        sections_with_violations = 0
+        successful_analyses = 0
+        failed_analyses = 0
+        
+        for result in analysis_results:
+            if result.get('success'):
+                successful_analyses += 1
+                try:
+                    ai_response = json.loads(result['content'])
+                    violations = ai_response.get('violations', [])
+                    if violations:
+                        sections_with_violations += 1
+                        total_violations += len(violations)
+                        critical_count += len([v for v in violations if v.get('severity') == 'critical'])
+                except:
+                    pass
             else:
-                report += f"## Section {i}\n\n❌ **Analysis failed:** {result.get('error', 'Unknown error')}\n\n---\n\n"
+                failed_analyses += 1
+        
+
+        
+        # Add grouped violations using the new function
+        grouped_violations = create_grouped_violations_report(analysis_results)
+        report += grouped_violations
+        
+        # Add processing summary
+        if failed_analyses > 0:
+            report += f"""## 📈 Processing Summary
+
+**Failed Analyses:** {failed_analyses}
+
+"""
+            for i, result in enumerate(analysis_results, 1):
+                if not result.get('success'):
+                    error = result.get('error', 'Unknown error')
+                    report += f"- **Chunk {i}:** {error}\n"
+            
+            report += "\n"
         
         return report
 
