@@ -25,13 +25,13 @@ from ui.components import (
     create_dual_input_section,
     create_debug_logger,
     create_simple_progress_tracker,
+    create_simple_status_updater,
     create_ai_analysis_section,
     create_results_tabs,
     create_ai_processing_interface,
     display_error_message,
     display_success_message,
-    create_info_panel,
-    show_input_mode_context
+    create_info_panel
 )
 from utils.logging_utils import setup_logger
 
@@ -234,40 +234,91 @@ def process_url_workflow(url: str, debug_mode: bool = False) -> dict:
         if debug_mode:
             log_placeholder = st.empty()
             log_callback = create_debug_logger(log_placeholder)
+            use_simple_logging = False
         else:
-            log_area, log_callback = create_simple_progress_tracker()
+            # Use simple status for normal users
+            simple_status = create_simple_status_updater()
+            use_simple_logging = True
+            
+            # Create a dummy log_callback for backward compatibility
+            def log_callback(message):
+                # Extract meaningful parts from technical messages
+                if "Initializing content extractor" in message:
+                    simple_status("Connecting to website...", "info")
+                elif "Fetching and extracting content" in message:
+                    simple_status("Reading webpage content...", "info")
+                elif "Content extracted" in message:
+                    simple_status("Content successfully extracted", "success")
+                elif "Initializing chunk processor" in message:
+                    simple_status("Processing content into sections...", "info")
+                elif "workflow complete" in message:
+                    simple_status("Content ready for AI analysis!", "success")
+                # For debug mode, we still want to see some messages
+                elif debug_mode:
+                    # Keep original technical logging in debug mode
+                    pass
         
         # Step 1: Content Extraction
-        log_callback("🚀 Initializing content extractor...")
+        if use_simple_logging:
+            simple_status("Connecting to website...", "info")
+        else:
+            log_callback("🚀 Initializing content extractor...")
+            
         with ContentExtractor() as extractor:
-            log_callback(f"🔍 Fetching and extracting content from: {url}")
+            if use_simple_logging:
+                simple_status("Reading webpage content...", "info")
+            else:
+                log_callback(f"🔍 Fetching and extracting content from: {url}")
+            
             success, content, error = extractor.extract_content(url)
             
             if not success:
-                result['error'] = f"Content extraction failed: {error}"
+                error_msg = f"Content extraction failed: {error}"
+                result['error'] = error_msg
+                if use_simple_logging:
+                    simple_status("Couldn't extract content from website", "error")
                 return result
             
             result['extracted_content'] = content
-            log_callback(f"✅ Content extracted: {len(content):,} characters")
+            if use_simple_logging:
+                simple_status("Content successfully extracted", "success")
+            else:
+                log_callback(f"✅ Content extracted: {len(content):,} characters")
         
         # Step 2: Chunk Processing
-        log_callback("🤖 Initializing chunk processor...")
+        if use_simple_logging:
+            simple_status("Processing content into sections...", "info")
+        else:
+            log_callback("✨ Initializing chunk processor...")
+            
         with ChunkProcessor(log_callback=log_callback if debug_mode else None) as processor:
             if not debug_mode:
-                with st.status("You are not waiting, Chunk Norris is waiting for you"):
-                    success, json_output_raw, error = processor.process_content(content)
+                if use_simple_logging:
+                    with st.status("You are not waiting, Chunk Norris is waiting for you..."):
+                        success, json_output_raw, error = processor.process_content(content)
+                        if success:
+                            simple_status("Content successfully processed!", "success")
+                else:
+                    with st.status("You are not waiting, Chunk Norris is waiting for you"):
+                        success, json_output_raw, error = processor.process_content(content)
             else:
                 success, json_output_raw, error = processor.process_content(content)
-            
+                
             if not success:
-                result['error'] = f"Chunk processing failed: {error}"
+                error_msg = f"Chunk processing failed: {error}"
+                result['error'] = error_msg
+                if use_simple_logging:
+                    simple_status("Problem processing the content", "error")
                 return result
             
             # FIXED: Store both raw and parsed versions
             result['json_output_raw'] = json_output_raw  # Raw decoded JSON string for UI
             result['json_output'] = parse_json_output(json_output_raw)  # Parsed dict for AI
             
-            log_callback("🎉 URL workflow complete!")
+            if use_simple_logging:
+                simple_status("Content ready for AI analysis!", "success")
+            else:
+                log_callback("🎉 URL workflow complete!")
         
         # Store processing timestamp and mode
         result['processing_timestamp'] = st.session_state.get('processing_timestamp', 0)
@@ -323,18 +374,39 @@ def process_direct_json_workflow(json_content: str, debug_mode: bool = False) ->
         if debug_mode:
             log_placeholder = st.empty()
             log_callback = create_debug_logger(log_placeholder)
+            use_simple_logging = False
         else:
-            log_area, log_callback = create_simple_progress_tracker()
+            # Use simple status for normal users
+            simple_status = create_simple_status_updater()
+            use_simple_logging = True
+            
+            # Create a dummy log_callback for backward compatibility
+            def log_callback(message):
+                if "Validating and processing JSON" in message:
+                    simple_status("Checking JSON format...", "info")
+                elif "Decoding Unicode escapes" in message:
+                    simple_status("Processing text content...", "info")
+                elif "workflow complete" in message:
+                    simple_status("JSON content ready for analysis!", "success")
         
         # Basic validation
-        log_callback("📋 Validating and processing JSON input...")
-        
+        if use_simple_logging:
+            simple_status("Checking JSON format...", "info")
+        else:
+            log_callback("📋 Validating and processing JSON input...")
+            
         if not json_content.strip():
-            result['error'] = "Please provide JSON content"
+            error_msg = "Please provide JSON content"
+            result['error'] = error_msg
+            if use_simple_logging:
+                simple_status("Please provide JSON content to analyze", "error")
             return result
         
         # FIXED: Apply Unicode decoding to direct input
-        log_callback("🔤 Decoding Unicode escapes in JSON content...")
+        if use_simple_logging:
+            simple_status("Processing text content...", "info")
+        else:
+            log_callback("🔤 Decoding Unicode escapes in JSON content...")
         decoded_json_content = decode_unicode_escapes(json_content)
         
         # Try to parse JSON to check basic validity
@@ -344,11 +416,17 @@ def process_direct_json_workflow(json_content: str, debug_mode: bool = False) ->
             
             # Basic structure check
             if not isinstance(parsed_json, dict):
-                result['error'] = "JSON must be an object (not an array or primitive)"
+                error_msg = "JSON must be an object (not an array or primitive)"
+                result['error'] = error_msg
+                if use_simple_logging:
+                    simple_status("JSON format issue - please check your content", "error")
                 return result
             
             if 'big_chunks' not in parsed_json:
-                result['error'] = "JSON must contain 'big_chunks' array"
+                error_msg = "JSON must contain 'big_chunks' array"
+                result['error'] = error_msg
+                if use_simple_logging:
+                    simple_status("JSON missing required 'big_chunks' section", "error")
                 return result
             
             big_chunks = parsed_json['big_chunks']
@@ -356,7 +434,8 @@ def process_direct_json_workflow(json_content: str, debug_mode: bool = False) ->
                 result['error'] = "'big_chunks' must be a non-empty array"
                 return result
             
-            log_callback(f"✅ Valid JSON with {len(big_chunks)} chunks detected")
+            if not use_simple_logging:
+                log_callback(f"✅ Valid JSON with {len(big_chunks)} chunks detected")
             
         except json.JSONDecodeError as e:
             result['error'] = f"Invalid JSON format: {str(e)}"
@@ -366,7 +445,10 @@ def process_direct_json_workflow(json_content: str, debug_mode: bool = False) ->
         result['json_output_raw'] = decoded_json_content  # Decoded string for UI display
         result['json_output'] = parsed_json  # Parsed dict for AI processing
         
-        log_callback("🎉 Direct JSON workflow complete!")
+        if use_simple_logging:
+            simple_status("JSON content ready for analysis!", "success")
+        else:
+            log_callback("🎉 Direct JSON workflow complete!")
         
         result['success'] = True
         logger.info(f"Direct JSON workflow completed successfully ({len(big_chunks)} chunks)")
@@ -505,22 +587,11 @@ async def process_ai_analysis(json_output: str, api_key: str, source_result: dic
                 stats = results.get('statistics', {})
                 processing_time = results.get('processing_time', 0)
                 
-                with status_container.container():
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Total Chunks", stats.get('total_chunks', 0))
-                    with col2:
-                        st.metric("Successful", stats.get('successful_analyses', 0))
-                    with col3:
-                        st.metric("Failed", stats.get('failed_analyses', 0))
-                    with col4:
-                        st.metric("Success Rate", f"{stats.get('success_rate', 0):.1f}%")
-                    
-                    if input_mode == 'url':
-                        st.success(f"✅ AI analysis completed for URL content in {processing_time:.2f} seconds")
-                    else:
-                        st.success(f"✅ AI analysis completed for direct JSON input in {processing_time:.2f} seconds")
-            else:
+                if input_mode == 'url':  # ✅ Properly indented inside the first if block
+                    st.success(f"✅ AI analysis completed for URL content in {processing_time:.2f} seconds")
+                else:
+                    st.success(f"✅ AI analysis completed for direct JSON input in {processing_time:.2f} seconds")
+            else:  # ✅ This else now correctly matches the first if
                 st.error(f"❌ Analysis failed: {results.get('error', 'Unknown error')}")
         
         return results
@@ -530,31 +601,6 @@ async def process_ai_analysis(json_output: str, api_key: str, source_result: dic
         logger.error(error_msg)
         return {'success': False, 'error': error_msg}
 
-def display_analysis_status_info():
-    """
-    Display information about current analysis status.
-    
-    ENHANCED: Show status for both URL and direct JSON inputs
-    """
-    input_mode = st.session_state.get('input_mode', '🌐 URL Input')
-    
-    if input_mode == "🌐 URL Input":
-        current_url = st.session_state.get('current_url_analysis')
-        if current_url:
-            st.info(f"📋 **Current Analysis Context**: {current_url}")
-    else:
-        current_mode = st.session_state.get('current_input_analysis_mode')
-        if current_mode == 'direct_json':
-            st.info(f"📋 **Current Analysis Context**: Direct JSON Input")
-    
-    # Check for stale AI results
-    ai_result = st.session_state.get('ai_analysis_result')
-    content_result = st.session_state.get('latest_result')
-    
-    if ai_result and content_result:
-        is_fresh = validate_analysis_freshness(content_result, ai_result)
-        if not is_fresh:
-            st.warning("⚠️ **Notice**: AI analysis results may be from a previous analysis. Run AI analysis again for current content.")
 
 def main():
     """
@@ -577,8 +623,6 @@ def main():
     # Store debug mode in session state for use in validation
     st.session_state['debug_mode'] = debug_mode
     
-    # Display current analysis context
-    display_analysis_status_info()
     
     # Create main content layout
     col1, col2 = st.columns([2, 1])
@@ -599,24 +643,18 @@ def main():
             # Route to appropriate workflow based on input mode
             if input_mode == 'url':
                 result = process_url_workflow(content, debug_mode)
-                success_message = "URL processing completed successfully!"
             else:  # direct_json
                 result = process_direct_json_workflow(content, debug_mode)
-                success_message = "Direct JSON processing completed successfully!"
             
             # Store result
             st.session_state["latest_result"] = result
             
-            if result["success"]:
-                display_success_message(success_message)
-                st.info("🤖 Ready for AI compliance analysis!")
-            else:
+            if not result["success"]:
                 display_error_message(result['error'])
     
     with col2:
         create_how_it_works_section()
-        # NEW: Show input mode context
-        show_input_mode_context()
+
     
     # Results section
     if 'latest_result' in st.session_state and st.session_state['latest_result'].get('success'):
@@ -634,7 +672,7 @@ def main():
             else:
                 try:
                     # Pass the parsed JSON dict for processing
-                    with st.spinner("🤖 Initializing AI analysis..."):
+                    with st.spinner("✨ Initializing AI analysis..."):
                         ai_results = asyncio.run(process_ai_analysis(
                             json_for_ai, 
                             api_key, 
@@ -665,7 +703,7 @@ def main():
             if st.button("🧹 Clear Stale Results", type="secondary", key="clear_stale_results"):
                 clear_analysis_session_state()
                 st.success("Stale results cleared! Run AI analysis again for fresh results.")
-                st.experimental_rerun()
+
         
         # Display results in tabs
         create_results_tabs(result, ai_result)
