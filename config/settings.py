@@ -1,413 +1,182 @@
 #!/usr/bin/env python3
 """
 Configuration settings for YMYL Audit Tool
-
-Centralized configuration management for all application settings.
-
-UPDATED: Simplified export configuration - Word format only
+Manages settings and Streamlit secrets access
 """
 
-# AI Processing Configuration
-ANALYZER_ASSISTANT_ID = "asst_WzODK9EapCaZoYkshT6x9xEH"
+import streamlit as st
+from typing import Dict, Any
+from utils.helpers import safe_log
 
-# Selenium/Browser Configuration
-SELENIUM_TIMEOUT = 180
-SELENIUM_SHORT_TIMEOUT = 30
-CHUNK_API_URL = "https://chunk.dejan.ai/"
+# Default settings
+DEFAULT_TIMEOUT = 30
+DEFAULT_MAX_CONTENT_LENGTH = 1000000  # 1MB
+DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+DEFAULT_AI_TIMEOUT = 300  # 5 minutes
+DEFAULT_MAX_AI_CONTENT = 2000000  # 2MB
 
-# Browser Options
-CHROME_OPTIONS = [
-    '--headless=new',
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-    '--disable-gpu'
-]
-
-# HTTP Configuration
-REQUEST_TIMEOUT = 30
-USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-
-# Export Configuration - SIMPLIFIED
-DEFAULT_EXPORT_FORMAT = 'docx'  # Word format only
-SUPPORTED_EXPORT_FORMATS = ['docx']  # Only Word format supported
-MAX_PARALLEL_REQUESTS = 10
-
-# Content Processing Configuration
-MAX_CONTENT_LENGTH = 1000000  # 1MB limit for content processing
-CHUNK_POLLING_INTERVAL = 0.2  # seconds
-CHUNK_POLLING_TIMEOUT = 30    # Increased from 10 to 30 seconds for more reliable processing
-
-# UI Configuration
-DEFAULT_TIMEZONE = "Europe/Malta"
-DEBUG_MODE_DEFAULT = True
-
-# Logging Configuration
-LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-LOG_LEVEL = 'INFO'
-
-# Session management settings
-SESSION_MANAGEMENT = {
-    # Session state keys that should be cleared when starting new URL analysis
-    'ANALYSIS_KEYS': [
-        "latest_result",
-        "ai_analysis_result", 
-        "ai_report",
-        "ai_stats",
-        "analysis_statistics",
-        "current_url_analysis",
-        "processing_start_time",
-        "chunk_analysis_results"
-    ],
-    
-    # Maximum number of results to keep in session history
-    'MAX_HISTORY_ITEMS': 5,
-    
-    # Automatic cleanup threshold (seconds) - auto-clear results older than this
-    'AUTO_CLEANUP_THRESHOLD': 3600,  # 1 hour
-    
-    # Enable/disable automatic stale detection
-    'ENABLE_STALE_DETECTION': True,
-    
-    # Show debug info for session management
-    'DEBUG_SESSION_STATE': False
-}
-
-# Content validation settings
-CONTENT_VALIDATION = {
-    # Minimum content length for valid chunks
-    'MIN_CHUNK_LENGTH': 10,
-    
-    # Maximum content length before warning
-    'MAX_SAFE_CONTENT_LENGTH': 500000,  # 500KB
-    
-    # Minimum number of chunks required for AI analysis
-    'MIN_CHUNKS_FOR_ANALYSIS': 1,
-    
-    # Content quality threshold (0.0 to 1.0)
-    'MIN_QUALITY_SCORE': 0.5,
-    
-    # Enable content hash validation
-    'ENABLE_CONTENT_HASHING': True
-}
-
-# AI Analysis Configuration
-AI_ANALYSIS = {
-    # Timeout for individual chunk analysis (seconds)
-    'CHUNK_ANALYSIS_TIMEOUT': 300,
-    
-    # Maximum retries for failed chunks
-    'MAX_CHUNK_RETRIES': 3,
-    
-    # Backoff multiplier for retries
-    'RETRY_BACKOFF_MULTIPLIER': 2,
-    
-    # Enable progress tracking enhancements
-    'ENABLE_PROGRESS_TRACKING': True,
-    
-    # Progress update interval (for UI responsiveness)
-    'PROGRESS_UPDATE_INTERVAL': 0.1,
-    
-    # Parallel processing limits
-    'MAX_CONCURRENT_ANALYSES': 10,
-    'MIN_CONCURRENT_ANALYSES': 1
-}
-
-# UI Enhancement Settings
-UI_SETTINGS = {
-    # Show detailed analysis context
-    'SHOW_ANALYSIS_CONTEXT': True,
-    
-    # Enable freshness indicators
-    'SHOW_FRESHNESS_INDICATORS': True,
-    
-    # Auto-scroll to results after processing
-    'AUTO_SCROLL_TO_RESULTS': True,
-    
-    # Show processing statistics
-    'SHOW_PROCESSING_STATS': True,
-    
-    # Maximum number of log lines to display
-    'MAX_LOG_LINES': 50,
-    
-    # Maximum number of milestones in simple progress
-    'MAX_PROGRESS_MILESTONES': 10,
-    
-    # Enable advanced debug options
-    'ENABLE_DEBUG_OPTIONS': True,
-
-    # User-friendly logging settings
-    'SIMPLE_PROGRESS_MODE': True,
-    'SHOW_TECHNICAL_LOGS': False,
-    'MAX_USER_FRIENDLY_MESSAGES': 5,
-    'CONSOLIDATE_STATUS_MESSAGES': True
-}
-
-# Error Handling Configuration
-ERROR_HANDLING = {
-    # Show detailed error messages to users
-    'SHOW_DETAILED_ERRORS': False,
-    
-    # Enable error reporting/logging
-    'ENABLE_ERROR_REPORTING': True,
-    
-    # Maximum error message length for UI
-    'MAX_ERROR_MESSAGE_LENGTH': 200,
-    
-    # Retry configuration for various operations
-    'RETRY_CONFIG': {
-        'content_extraction': {'max_retries': 3, 'backoff': 1.5},
-        'chunk_processing': {'max_retries': 2, 'backoff': 2.0},
-        'ai_analysis': {'max_retries': 3, 'backoff': 2.0}
-    }
-}
-
-# Performance Monitoring
-PERFORMANCE = {
-    # Enable performance monitoring
-    'ENABLE_MONITORING': True,
-    
-    # Log performance metrics
-    'LOG_PERFORMANCE_METRICS': True,
-    
-    # Performance thresholds for warnings
-    'THRESHOLDS': {
-        'content_extraction': 30,     # seconds
-        'chunk_processing': 120,      # seconds  
-        'ai_analysis_per_chunk': 60   # seconds
-    },
-    
-    # Memory usage monitoring
-    'MONITOR_MEMORY_USAGE': True,
-    
-    # Clear large objects after processing
-    'AUTO_CLEANUP_LARGE_OBJECTS': True
-}
-
-# Feature Flags
-FEATURE_FLAGS = {
-    # Enable experimental features
-    'EXPERIMENTAL_FEATURES': False,
-    
-    # Enable enhanced progress tracking
-    'ENHANCED_PROGRESS_TRACKING': True,
-    
-    # Enable content validation
-    'CONTENT_VALIDATION': True,
-    
-    # Enable stale results detection
-    'STALE_RESULTS_DETECTION': True,
-    
-    # Enable session state debugging
-    'SESSION_STATE_DEBUG': False,
-    
-    # Enable advanced analytics
-    'ADVANCED_ANALYTICS': True
-}
-
-# Security Configuration
-SECURITY = {
-    # Sanitize user inputs
-    'SANITIZE_INPUTS': True,
-    
-    # Maximum URL length
-    'MAX_URL_LENGTH': 2048,
-    
-    # Allowed URL schemes
-    'ALLOWED_URL_SCHEMES': ['http', 'https'],
-    
-    # Enable content type validation
-    'VALIDATE_CONTENT_TYPES': True,
-    
-    # Maximum file sizes for various operations
-    'MAX_FILE_SIZES': {
-        'content': MAX_CONTENT_LENGTH,
-        'json_output': 5 * 1024 * 1024,  # 5MB
-        'exported_reports': 10 * 1024 * 1024  # 10MB
-    }
-}
-
-# Export and Download Configuration - SIMPLIFIED
-EXPORT_CONFIG = {
-    # Default filename pattern
-    'FILENAME_PATTERN': 'ymyl_compliance_report_{timestamp}',
-    
-    # Default format (Word only)
-    'DEFAULT_FORMAT': 'docx',
-    
-    # Supported formats (Word only)
-    'SUPPORTED_FORMATS': ['docx'],
-    
-    # Include metadata in exports
-    'INCLUDE_METADATA': True,
-    
-    # Google Docs compatibility mode
-    'GOOGLE_DOCS_COMPATIBLE': True,
-    
-    # Maximum export file size before warning
-    'MAX_EXPORT_SIZE': 50 * 1024 * 1024,  # 50MB
-    
-    # Word-specific settings
-    'WORD_SETTINGS': {
-        'USE_BUILTIN_STYLES': True,
-        'EMOJI_TO_TEXT': True,
-        'GOOGLE_DOCS_OPTIMIZED': True
-    }
-}
-
-# Development and Testing
-DEVELOPMENT = {
-    # Enable development mode features
-    'DEV_MODE': False,
-    
-    # Show internal timestamps and IDs
-    'SHOW_INTERNAL_DATA': False,
-    
-    # Enable test data generation
-    'ENABLE_TEST_DATA': False,
-    
-    # Mock external services (for testing)
-    'MOCK_EXTERNAL_SERVICES': False,
-    
-    # Additional logging for development
-    'VERBOSE_LOGGING': False
-}
-
-# Backward Compatibility
-COMPATIBILITY = {
-    # Support legacy session state keys
-    'SUPPORT_LEGACY_KEYS': True,
-    
-    # Migrate old session data format
-    'AUTO_MIGRATE_SESSION_DATA': True,
-    
-    # Legacy timeout values
-    'LEGACY_TIMEOUTS': {
-        'chunk_polling': 10  # Original timeout for reference
-    }
-}
-
-
-def get_setting(key_path: str, default=None):
+def get_openai_api_key() -> str:
     """
-    Get a setting value using dot notation.
+    Get OpenAI API key from Streamlit secrets
     
-    Args:
-        key_path (str): Dot-separated path to setting (e.g., 'SESSION_MANAGEMENT.ENABLE_STALE_DETECTION')
-        default: Default value if setting not found
-        
     Returns:
-        Setting value or default
+        API key string
+        
+    Raises:
+        KeyError: If API key not found in secrets
     """
     try:
-        # Import current module to access settings
-        import sys
-        current_module = sys.modules[__name__]
-        
-        parts = key_path.split('.')
-        value = current_module
-        
-        for part in parts:
-            if hasattr(value, part):
-                value = getattr(value, part)
-            elif isinstance(value, dict) and part in value:
-                value = value[part]
-            else:
-                return default
-        
-        return value
-        
-    except Exception:
-        return default
+        return st.secrets["openai_api_key"]
+    except KeyError:
+        safe_log("OpenAI API key not found in secrets")
+        raise KeyError("OpenAI API key not configured in secrets.toml")
 
-
-def validate_settings():
+def get_assistant_ids() -> Dict[str, str]:
     """
-    Validate configuration settings for consistency.
+    Get assistant IDs from Streamlit secrets
     
     Returns:
-        tuple: (is_valid, errors_list)
+        Dictionary with regular and casino assistant IDs
+        
+    Raises:
+        KeyError: If assistant IDs not found in secrets
+    """
+    try:
+        return {
+            'regular': st.secrets["regular_assistant_id"],
+            'casino': st.secrets["casino_assistant_id"]
+        }
+    except KeyError as e:
+        safe_log(f"Assistant ID not found in secrets: {e}")
+        raise KeyError(f"Assistant IDs not configured in secrets: {e}")
+
+def get_request_settings() -> Dict[str, Any]:
+    """
+    Get HTTP request settings
+    
+    Returns:
+        Dictionary with request configuration
+    """
+    return {
+        'timeout': DEFAULT_TIMEOUT,
+        'max_content_length': DEFAULT_MAX_CONTENT_LENGTH,
+        'user_agent': DEFAULT_USER_AGENT
+    }
+
+def get_ai_settings() -> Dict[str, Any]:
+    """
+    Get AI analysis settings
+    
+    Returns:
+        Dictionary with AI configuration
+    """
+    try:
+        assistant_ids = get_assistant_ids()
+        api_key = get_openai_api_key()
+        
+        return {
+            'api_key': api_key,
+            'regular_assistant_id': assistant_ids['regular'],
+            'casino_assistant_id': assistant_ids['casino'],
+            'timeout': DEFAULT_AI_TIMEOUT,
+            'max_content_size': DEFAULT_MAX_AI_CONTENT
+        }
+    except KeyError as e:
+        safe_log(f"AI settings configuration error: {e}")
+        raise
+
+def validate_configuration() -> tuple[bool, list]:
+    """
+    Validate that all required configuration is present
+    
+    Returns:
+        Tuple of (is_valid, list_of_errors)
     """
     errors = []
     
     try:
-        # Validate timeout settings
-        if CHUNK_POLLING_TIMEOUT <= CHUNK_POLLING_INTERVAL:
-            errors.append("CHUNK_POLLING_TIMEOUT must be greater than CHUNK_POLLING_INTERVAL")
+        # Check OpenAI API key
+        api_key = get_openai_api_key()
+        if not api_key or not api_key.startswith('sk-'):
+            errors.append("Invalid OpenAI API key format")
+    except KeyError:
+        errors.append("OpenAI API key not configured")
+    
+    try:
+        # Check assistant IDs
+        assistant_ids = get_assistant_ids()
         
-        # Validate content limits
-        if MAX_CONTENT_LENGTH <= 0:
-            errors.append("MAX_CONTENT_LENGTH must be positive")
-        
-        # Validate AI settings
-        if MAX_PARALLEL_REQUESTS <= 0:
-            errors.append("MAX_PARALLEL_REQUESTS must be positive")
-        
-        # Validate session management settings
-        max_history = SESSION_MANAGEMENT.get('MAX_HISTORY_ITEMS', 0)
-        if max_history <= 0:
-            errors.append("SESSION_MANAGEMENT.MAX_HISTORY_ITEMS must be positive")
-        
-        # Validate content validation settings
-        min_quality = CONTENT_VALIDATION.get('MIN_QUALITY_SCORE', 0)
-        if not (0 <= min_quality <= 1):
-            errors.append("CONTENT_VALIDATION.MIN_QUALITY_SCORE must be between 0 and 1")
-        
-        # Validate export settings
-        if DEFAULT_EXPORT_FORMAT not in SUPPORTED_EXPORT_FORMATS:
-            errors.append("DEFAULT_EXPORT_FORMAT must be in SUPPORTED_EXPORT_FORMATS")
-        
-        return len(errors) == 0, errors
-        
-    except Exception as e:
-        return False, [f"Error validating settings: {str(e)}"]
+        if not assistant_ids['regular'] or not assistant_ids['regular'].startswith('asst_'):
+            errors.append("Invalid regular assistant ID format")
+            
+        if not assistant_ids['casino'] or not assistant_ids['casino'].startswith('asst_'):
+            errors.append("Invalid casino assistant ID format")
+            
+    except KeyError:
+        errors.append("Assistant IDs not configured")
+    
+    try:
+        # Check auth configuration - your format
+        users = st.secrets["auth"]["users"]
+        if not isinstance(users, dict) or len(users) == 0:
+            errors.append("No users configured for authentication")
+    except KeyError:
+        errors.append("Authentication not configured")
+    
+    is_valid = len(errors) == 0
+    
+    if is_valid:
+        safe_log("Configuration validation passed")
+    else:
+        safe_log(f"Configuration validation failed: {errors}")
+    
+    return is_valid, errors
 
-
-def get_timeout_config():
+def get_secrets_template() -> str:
     """
-    Get all timeout-related configuration in one place.
+    Get template for secrets.toml configuration - updated with both assistant IDs
     
     Returns:
-        dict: All timeout settings
+        Template string for secrets.toml file
     """
-    return {
-        'request_timeout': REQUEST_TIMEOUT,
-        'selenium_timeout': SELENIUM_TIMEOUT,
-        'selenium_short_timeout': SELENIUM_SHORT_TIMEOUT,
-        'chunk_polling_timeout': CHUNK_POLLING_TIMEOUT,
-        'chunk_polling_interval': CHUNK_POLLING_INTERVAL,
-        'ai_analysis_timeout': AI_ANALYSIS.get('CHUNK_ANALYSIS_TIMEOUT', 300),
-        'auto_cleanup_threshold': SESSION_MANAGEMENT.get('AUTO_CLEANUP_THRESHOLD', 3600)
-    }
+    return """# YMYL Audit Tool Configuration - Updated Format
 
+# OpenAI Configuration
+openai_api_key = "sk-your-openai-api-key-here"
+regular_assistant_id = "asst_your-regular-assistant-id-here"
+casino_assistant_id = "asst_your-casino-assistant-id-here"
 
-def get_export_config():
-    """
-    Get export-related configuration.
+# Authentication - Your Current Format
+[auth.users]
+seoapp = "your-seoapp-password"
+admin = "your-admin-password"
+"""
+
+def display_configuration_help():
+    """Display configuration help in Streamlit"""
+    st.error("❌ **Configuration Error**: Required settings not found")
     
-    Returns:
-        dict: Export configuration
-    """
-    return {
-        'supported_formats': SUPPORTED_EXPORT_FORMATS,
-        'filename_pattern': EXPORT_CONFIG.get('FILENAME_PATTERN', 'ymyl_compliance_report_{timestamp}'),
-        'google_docs_compatible': EXPORT_CONFIG.get('GOOGLE_DOCS_COMPATIBLE', True),
-        'word_settings': EXPORT_CONFIG.get('WORD_SETTINGS', {})
-    }
+    with st.expander("🔧 Configuration Instructions"):
+        st.markdown("""
+        **Create `.streamlit/secrets.toml` file with:**
+        """)
+        
+        st.code(get_secrets_template(), language='toml')
+        
+        st.markdown("""
+        **Required values:**
+        
+        1. **OpenAI API Key**: Get from https://platform.openai.com/api-keys
+        2. **Assistant IDs**: Create YMYL compliance assistants in OpenAI platform
+        3. **User Authentication**: Set username/password pairs for app access
+        
+        **For Streamlit Cloud deployment:**
+        - Paste the secrets in your app's "Advanced settings" → "Secrets" field
+        """)
 
-
-# Export important configuration groups for easy access
-__all__ = [
-    # Original exports
-    'ANALYZER_ASSISTANT_ID', 'SELENIUM_TIMEOUT', 'CHUNK_API_URL', 'CHROME_OPTIONS',
-    'REQUEST_TIMEOUT', 'USER_AGENT', 'DEFAULT_EXPORT_FORMAT', 'SUPPORTED_EXPORT_FORMATS',
-    'MAX_PARALLEL_REQUESTS', 'MAX_CONTENT_LENGTH', 'CHUNK_POLLING_INTERVAL', 
-    'CHUNK_POLLING_TIMEOUT', 'DEFAULT_TIMEZONE', 'DEBUG_MODE_DEFAULT', 'LOG_FORMAT', 'LOG_LEVEL',
-    
-    # Configuration groups
-    'SESSION_MANAGEMENT', 'CONTENT_VALIDATION', 'AI_ANALYSIS', 'UI_SETTINGS',
-    'ERROR_HANDLING', 'PERFORMANCE', 'FEATURE_FLAGS', 'SECURITY', 'EXPORT_CONFIG',
-    'DEVELOPMENT', 'COMPATIBILITY',
-    
-    # Utility functions
-    'get_setting', 'validate_settings', 'get_timeout_config', 'get_export_config'
-]
+# Constants for external use
+TIMEOUT = DEFAULT_TIMEOUT
+MAX_CONTENT_LENGTH = DEFAULT_MAX_CONTENT_LENGTH
+AI_TIMEOUT = DEFAULT_AI_TIMEOUT
+MAX_AI_CONTENT_SIZE = DEFAULT_MAX_AI_CONTENT
+USER_AGENT = DEFAULT_USER_AGENT
