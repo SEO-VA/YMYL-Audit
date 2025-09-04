@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Configuration settings for YMYL Audit Tool
-Manages settings and Streamlit secrets access
+Manages settings and Streamlit secrets access - Updated for 3 Assistants
 """
 
 import streamlit as st
@@ -36,7 +36,7 @@ def get_assistant_ids() -> Dict[str, str]:
     Get assistant IDs from Streamlit secrets
     
     Returns:
-        Dictionary with regular and casino assistant IDs
+        Dictionary with regular, casino, and deduplicator assistant IDs
         
     Raises:
         KeyError: If assistant IDs not found in secrets
@@ -44,7 +44,8 @@ def get_assistant_ids() -> Dict[str, str]:
     try:
         return {
             'regular': st.secrets["regular_assistant_id"],
-            'casino': st.secrets["casino_assistant_id"]
+            'casino': st.secrets["casino_assistant_id"],
+            'deduplicator': st.secrets["deduplicator_assistant_id"]  # NEW: Required for 5-audit workflow
         }
     except KeyError as e:
         safe_log(f"Assistant ID not found in secrets: {e}")
@@ -78,6 +79,7 @@ def get_ai_settings() -> Dict[str, Any]:
             'api_key': api_key,
             'regular_assistant_id': assistant_ids['regular'],
             'casino_assistant_id': assistant_ids['casino'],
+            'deduplicator_assistant_id': assistant_ids['deduplicator'],  # NEW: Added deduplicator
             'timeout': DEFAULT_AI_TIMEOUT,
             'max_content_size': DEFAULT_MAX_AI_CONTENT
         }
@@ -112,11 +114,14 @@ def validate_configuration() -> tuple[bool, list]:
         if not assistant_ids['casino'] or not assistant_ids['casino'].startswith('asst_'):
             errors.append("Invalid casino assistant ID format")
             
+        if not assistant_ids['deduplicator'] or not assistant_ids['deduplicator'].startswith('asst_'):
+            errors.append("Invalid deduplicator assistant ID format")
+            
     except KeyError:
         errors.append("Assistant IDs not configured")
     
     try:
-        # Check auth configuration - your format
+        # Check auth configuration
         users = st.secrets["auth"]["users"]
         if not isinstance(users, dict) or len(users) == 0:
             errors.append("No users configured for authentication")
@@ -134,23 +139,24 @@ def validate_configuration() -> tuple[bool, list]:
 
 def get_secrets_template() -> str:
     """
-    Get template for secrets.toml configuration - updated with both assistant IDs
+    Get template for secrets.toml configuration - Updated with deduplicator assistant
     
     Returns:
         Template string for secrets.toml file
     """
-    return """# YMYL Audit Tool Configuration - Updated Format
+    return '''# YMYL Audit Tool Configuration - 5 Parallel Audits Version
 
-# OpenAI Configuration
+# OpenAI Configuration (3 Assistants Required)
 openai_api_key = "sk-your-openai-api-key-here"
 regular_assistant_id = "asst_your-regular-assistant-id-here"
 casino_assistant_id = "asst_your-casino-assistant-id-here"
+deduplicator_assistant_id = "asst_your-deduplicator-assistant-id-here"
 
-# Authentication - Your Current Format
+# Authentication
 [auth.users]
 seoapp = "your-seoapp-password"
 admin = "your-admin-password"
-"""
+'''
 
 def display_configuration_help():
     """Display configuration help in Streamlit"""
@@ -166,12 +172,17 @@ def display_configuration_help():
         st.markdown("""
         **Required values:**
         
-        1. **OpenAI API Key**: Get from https://platform.openai.com/api-keys
-        2. **Assistant IDs**: Create YMYL compliance assistants in OpenAI platform
+        1. **OpenAI API Key**: Get from https://platform.openai.com/api-keys  
+        2. **Assistant IDs**: Create 3 YMYL compliance assistants in OpenAI platform
+           - `regular_assistant_id`: For general YMYL audits
+           - `casino_assistant_id`: For gambling-related content audits
+           - `deduplicator_assistant_id`: For merging and deduplicating audit results (**NEW**)
         3. **User Authentication**: Set username/password pairs for app access
         
         **For Streamlit Cloud deployment:**
         - Paste the secrets in your app's "Advanced settings" → "Secrets" field
+        
+        **⚠️ IMPORTANT**: The deduplicator assistant is required for the new 5-audit workflow.
         """)
 
 # Constants for external use
